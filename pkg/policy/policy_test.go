@@ -529,12 +529,12 @@ func (s *PolicyTestSuite) TestpolicyAllows(c *C) {
 	root := NewTree()
 	_, err := root.Add("root", &rootNode)
 	c.Assert(err, IsNil)
-	c.Assert(root.AllowsRLocked(&qaFooToQaBar), Equals, api.ACCEPT)
-	c.Assert(root.AllowsRLocked(&prodFooToProdBar), Equals, api.ACCEPT)
-	c.Assert(root.AllowsRLocked(&qaFooToProdBar), Equals, api.DENY)
-	c.Assert(root.AllowsRLocked(&qaJoeFooToProdBar), Equals, api.ACCEPT)
-	c.Assert(root.AllowsRLocked(&qaPeteFooToProdBar), Equals, api.DENY)
-	c.Assert(root.AllowsRLocked(&qaBazToQaBar), Equals, api.DENY)
+	c.Assert(root.AllowsRLocked(&qaFooToQaBar).L3Decision, Equals, api.ACCEPT)
+	c.Assert(root.AllowsRLocked(&prodFooToProdBar).L3Decision, Equals, api.ACCEPT)
+	c.Assert(root.AllowsRLocked(&qaFooToProdBar).L3Decision, Equals, api.DENY)
+	c.Assert(root.AllowsRLocked(&qaJoeFooToProdBar).L3Decision, Equals, api.ACCEPT)
+	c.Assert(root.AllowsRLocked(&qaPeteFooToProdBar).L3Decision, Equals, api.DENY)
+	c.Assert(root.AllowsRLocked(&qaBazToQaBar).L3Decision, Equals, api.DENY)
 
 	_, err = json.MarshalIndent(rootNode, "", "    ")
 	c.Assert(err, Equals, nil)
@@ -653,25 +653,6 @@ func (s *PolicyTestSuite) TestNodeMerge(c *C) {
 	modified, err = aNode.Merge(&unmergeableNode)
 	c.Assert(modified, Equals, false)
 	c.Assert(err, Not(Equals), nil)
-}
-
-func (s *PolicyTestSuite) TestSearchContextReplyJSON(c *C) {
-	scr := SearchContextReply{
-		Logging:  []byte(`foo`),
-		Decision: api.ConsumableDecision(0x1),
-	}
-	scrWanted := SearchContextReply{
-		Logging:  []byte(`foo`),
-		Decision: api.ConsumableDecision(0x1),
-	}
-	b, err := json.Marshal(scr)
-	c.Assert(err, IsNil)
-	c.Assert(b, DeepEquals, []byte(`{"Logging":"Zm9v","Decision":"accept"}`))
-
-	var scrGot SearchContextReply
-	err = json.Unmarshal(b, &scrGot)
-	c.Assert(err, IsNil)
-	c.Assert(scrGot, DeepEquals, scrWanted)
 }
 
 func (s *PolicyTestSuite) TestRuleMergeable(c *C) {

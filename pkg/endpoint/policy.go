@@ -41,7 +41,7 @@ func (e *Endpoint) checkEgressAccess(owner Owner, opts models.ConfigurationMap, 
 		return
 	}
 
-	switch owner.GetPolicyTree().AllowsRLocked(&ctx) {
+	switch owner.GetPolicyTree().AllowsRLocked(&ctx).L3Decision {
 	case api.ACCEPT, api.ALWAYS_ACCEPT:
 		opts[opt] = "enabled"
 	case api.DENY:
@@ -74,7 +74,7 @@ func (e *Endpoint) evaluateConsumerSource(owner Owner, ctx *policy.SearchContext
 
 	log.Debugf("Evaluating policy for %+v", ctx)
 
-	decision := owner.GetPolicyTree().AllowsRLocked(ctx)
+	decision := owner.GetPolicyTree().AllowsRLocked(ctx).L3Decision
 	if decision == api.ACCEPT {
 		e.allowConsumer(owner, srcID)
 	}
