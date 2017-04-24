@@ -4,9 +4,12 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"strconv"
+
 	strfmt "github.com/go-openapi/strfmt"
 
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/swag"
 )
 
 // IdentityContext Context describing a pair of source and destination identity
@@ -18,14 +21,90 @@ type IdentityContext struct {
 
 	// to
 	To Labels `json:"to"`
+
+	// List of Layer 4 port and protocol pairs which the identity will use
+	// for outgoing network communication. If specified, all port / protocol
+	// pairs must be allowed by the policy.
+	//
+	ToL4Egress []*Port `json:"to-l4-egress"`
+
+	// List of Layer 4 port and protocol pairs which the identity will use
+	// for incoming network communication. If specified, all port / protocol
+	// pairs must be allowed by the policy.
+	//
+	ToL4Ingress []*Port `json:"to-l4-ingress"`
 }
 
 // Validate validates this identity context
 func (m *IdentityContext) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateToL4Egress(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
+	if err := m.validateToL4Ingress(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
+
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *IdentityContext) validateToL4Egress(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.ToL4Egress) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.ToL4Egress); i++ {
+
+		if swag.IsZero(m.ToL4Egress[i]) { // not required
+			continue
+		}
+
+		if m.ToL4Egress[i] != nil {
+
+			if err := m.ToL4Egress[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("to-l4-egress" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
+	return nil
+}
+
+func (m *IdentityContext) validateToL4Ingress(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.ToL4Ingress) { // not required
+		return nil
+	}
+
+	for i := 0; i < len(m.ToL4Ingress); i++ {
+
+		if swag.IsZero(m.ToL4Ingress[i]) { // not required
+			continue
+		}
+
+		if m.ToL4Ingress[i] != nil {
+
+			if err := m.ToL4Ingress[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("to-l4-ingress" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
