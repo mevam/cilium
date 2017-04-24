@@ -1150,6 +1150,13 @@ func init() {
       "description": "Context describing a pair of source and destination identity",
       "type": "object",
       "properties": {
+        "dports": {
+          "description": "List of Layer 4 port and protocol pairs which the identity will use for\nthe destination port in incoming and outgoing network traffic.\n",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Port"
+          }
+        },
         "from": {
           "$ref": "#/definitions/Labels"
         },
@@ -1262,6 +1269,26 @@ func init() {
     "PolicyTree": {
       "description": "Policy tree or subtree",
       "type": "string"
+    },
+    "Port": {
+      "description": "Layer 4 port / protocol pair",
+      "type": "object",
+      "properties": {
+        "port": {
+          "description": "Layer 4 port number",
+          "type": "integer",
+          "format": "uint16"
+        },
+        "protocol": {
+          "description": "Layer 4 protocol",
+          "type": "string",
+          "enum": [
+            "tcp",
+            "udp",
+            "any"
+          ]
+        }
+      }
     },
     "Service": {
       "description": "Collection of endpoints to be served",
