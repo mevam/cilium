@@ -96,25 +96,6 @@ func (d *Daemon) TriggerPolicyUpdates(added []policy.NumericIdentity) {
 	d.endpointsMU.RUnlock()
 }
 
-// PolicyCanConsume calculates if the ctx allows the consumer to be consumed. This public
-// function returns a SearchContextReply with the consumable decision and the tracing log
-// if ctx.Trace was set.
-func (d *Daemon) PolicyCanConsume(ctx *policy.SearchContext) (*policy.SearchContextReply, error) {
-	buffer := new(bytes.Buffer)
-	if ctx.Trace != policy.TRACE_DISABLED {
-		ctx.Logging = logging.NewLogBackend(buffer, "", 0)
-	}
-	scr := policy.SearchContextReply{}
-	d.policy.Mutex.RLock()
-	scr.Decision = d.policy.AllowsRLocked(ctx)
-	d.policy.Mutex.RUnlock()
-
-	if ctx.Trace != policy.TRACE_DISABLED {
-		scr.Logging = buffer.Bytes()
-	}
-	return &scr, nil
-}
-
 type getPolicyResolve struct {
 	daemon *Daemon
 }
@@ -132,6 +113,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 		Logging: logging.NewLogBackend(buffer, "", 0),
 		From:    labels.NewLabelArrayFromModel(ctx.From),
 		To:      labels.NewLabelArrayFromModel(ctx.To),
+		DPorts:  ctx.Dports,
 	}
 
 	d.policy.Mutex.RLock()
@@ -139,7 +121,7 @@ func (h *getPolicyResolve) Handle(params GetPolicyResolveParams) middleware.Resp
 	d.policy.Mutex.RUnlock()
 
 	result := models.PolicyTraceResult{
-		Verdict: verdict.String(),
+		Verdict: verdict.FinalDecision().String(),
 		Log:     buffer.String(),
 	}
 

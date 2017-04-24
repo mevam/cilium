@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -117,23 +118,41 @@ type SearchContext struct {
 	Logging *logging.LogBackend
 	From    labels.LabelArray
 	To      labels.LabelArray
+	DPorts  []*models.Port
 }
 
 type SearchContextReply struct {
-	Logging  []byte
-	Decision api.ConsumableDecision
+	L3Decision api.ConsumableDecision
+	L4Decision api.ConsumableDecision
+}
+
+// FinalDecision returns a decision for a L3 and L4 decision reply.
+func (s *SearchContextReply) FinalDecision() api.ConsumableDecision {
+	if s.L3Decision == api.ACCEPT || s.L4Decision == api.ALWAYS_ACCEPT {
+		return s.L4Decision
+	}
+	return s.L3Decision
 }
 
 func (s *SearchContext) String() string {
 	from := []string{}
 	to := []string{}
+	dports := []string{}
 	for _, fromLabel := range s.From {
 		from = append(from, fromLabel.String())
 	}
 	for _, toLabel := range s.To {
 		to = append(to, toLabel.String())
 	}
-	return fmt.Sprintf("From: [%s] => To: [%s]", strings.Join(from, ", "), strings.Join(to, ", "))
+	for _, dport := range s.DPorts {
+		dports = append(dports, fmt.Sprintf("%d/%s", dport.Port, dport.Protocol))
+	}
+	ret := fmt.Sprintf("From: [%s]", strings.Join(from, ", "))
+	ret += fmt.Sprintf(" => To: [%s]", strings.Join(to, ", "))
+	if len(dports) != 0 {
+		ret += fmt.Sprintf(" AND to destination ports: [%s]", strings.Join(dports, ", "))
+	}
+	return ret
 }
 
 func (s *SearchContext) CallDepth() string {
@@ -143,7 +162,7 @@ func (s *SearchContext) CallDepth() string {
 // TargetCoveredBy checks if the SearchContext `To` is covered by the all
 // `coverage` labels.
 func (s *SearchContext) TargetCoveredBy(coverage []*labels.Label) bool {
-	policyTraceVerbose(s, "Checking if %+v covers %+v", coverage, s.To)
+	policyTrace(s, "Checking if %+v covers %+v", coverage, s.To)
 	return s.To.Contains(coverage)
 }
 

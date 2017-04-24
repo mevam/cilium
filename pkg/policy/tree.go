@@ -89,45 +89,58 @@ func canConsume(root *Node, ctx *SearchContext) api.ConsumableDecision {
 
 // AllowsRLocked checks the ConsumableDecision of the given `SearchContext`.
 // Must be called with the Mutex's tree at least RLocked.
-func (t *Tree) AllowsRLocked(ctx *SearchContext) api.ConsumableDecision {
+func (t *Tree) AllowsRLocked(ctx *SearchContext) SearchContextReply {
 	policyTrace(ctx, "NEW TRACE >> %s\n", ctx.String())
 
-	var decision, subDecision api.ConsumableDecision
+	var l3Dec, l3SubDec, l4Dec api.ConsumableDecision
 	// In absence of policy, deny
 	if t.Root == nil {
-		decision = api.DENY
-		policyTrace(ctx, "No policy loaded: [%s]\n", decision.String())
+		l3Dec = api.DENY
+		policyTrace(ctx, "No policy loaded: [%s]\n", l3Dec.String())
 		goto end
 	}
 
-	decision = t.Root.Allows(ctx)
-	policyTrace(ctx, "Root's [%s] rules verdict: [%s]\n", t.Root.path, decision)
-	switch decision {
+	l3Dec = t.Root.Allows(ctx)
+	policyTrace(ctx, "Root's [%s] rules verdict: [%s]\n", t.Root.path, l3Dec)
+	switch l3Dec {
 	case api.ALWAYS_ACCEPT:
-		decision = api.ACCEPT
+		l3Dec = api.ACCEPT
 		goto end
 	case api.DENY:
 		goto end
 	}
 
 	policyTrace(ctx, "Searching in [%s]'s children that have the coverage for: [%s]\n", t.Root.path, ctx.To)
-	subDecision = canConsume(t.Root, ctx)
-	policyTrace(ctx, "Root's [%s] children verdict: [%s]\n", t.Root.path, subDecision)
-	switch subDecision {
+	l3SubDec = canConsume(t.Root, ctx)
+	policyTrace(ctx, "Root's [%s] children verdict: [%s]\n", t.Root.path, l3SubDec)
+	switch l3SubDec {
 	case api.ALWAYS_ACCEPT, api.ACCEPT:
-		decision = api.ACCEPT
+		l3Dec = api.ACCEPT
 	case api.DENY:
-		decision = api.DENY
+		l3Dec = api.DENY
 	case api.UNDECIDED:
-		if decision == api.UNDECIDED {
-			decision = api.DENY
+		if l3Dec == api.UNDECIDED {
+			l3Dec = api.DENY
 		}
 	}
 
 end:
-	policyTrace(ctx, "END TRACE << verdict: [%s]\n", strings.ToUpper(decision.String()))
 
-	return decision
+	l4Policy := t.ResolveL4Policy(ctx)
+
+	if l4Policy.CoversL4(ctx) {
+		l4Dec = api.ACCEPT
+	} else {
+		l4Dec = api.DENY
+	}
+	decStr := strings.ToUpper(l3Dec.String())
+	l4DecStr := strings.ToUpper(l4Dec.String())
+	policyTrace(ctx, "END TRACE << l3 verdict: [%s], l4 verdict: [%s]\n", decStr, l4DecStr)
+
+	return SearchContextReply{
+		L3Decision: l3Dec,
+		L4Decision: l4Dec,
+	}
 }
 
 func (t *Tree) ResolveL4Policy(ctx *SearchContext) *L4Policy {
