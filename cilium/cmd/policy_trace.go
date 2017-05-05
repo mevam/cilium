@@ -57,6 +57,7 @@ dports can be can be for example: 80/tcp, 53 or 23/udp.`,
 			From:        srcSlice,
 			To:          dstSlice,
 			ToL4Ingress: dports,
+			ToL4Egress:  dports,
 		}
 
 		params := NewGetPolicyResolveParams().WithIdentityContext(&search)
@@ -75,7 +76,7 @@ func init() {
 	policyTraceCmd.MarkFlagRequired("src")
 	policyTraceCmd.Flags().StringSliceVarP(&dst, "dst", "d", []string{}, "Destination label context")
 	policyTraceCmd.MarkFlagRequired("dst")
-	policyTraceCmd.Flags().StringSliceVarP(&dports, "dport", "", []string{}, "L4 destination port for incoming traffic to the destination label context")
+	policyTraceCmd.Flags().StringSliceVarP(&dports, "dport", "", []string{}, "L4 destination port for incoming and outgoing traffic of the destination label context ")
 }
 
 func parseAllowedSlice(slice []string) ([]string, error) {
