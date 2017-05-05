@@ -367,28 +367,28 @@ func (ds *PolicyTestSuite) TestOutsideCoverage(c *C) {
 func (ds *PolicyTestSuite) TestAtomicReplace(c *C) {
 	policyText := `
 {
-	"name": "root",
-	"rules": [{
-		"coverage": ["reserved:world"],
-		"allow": ["id.foo"]
-	}],
-	"children": {
-		"id": {
-			"rules": [{
-				"coverage": ["bar"],
-				"allow": ["foo"]
-			},{
-				"coverage": ["foo"],
-				"allow": ["bar"]
-			}]
-		},
-		"not_id": {
-			"rules": [{
-				"coverage": ["root.not_id.bar"],
-				"allow": ["root.id.foo"]
-			}]
-		}
-	}
+       "name": "root",
+       "rules": [{
+               "coverage": ["reserved:world"],
+               "allow": ["id.foo"]
+       }],
+       "children": {
+               "id": {
+                       "rules": [{
+                               "coverage": ["bar"],
+                               "allow": ["foo"]
+                       },{
+                               "coverage": ["foo"],
+                               "allow": ["bar"]
+                       }]
+               },
+               "not_id": {
+                       "rules": [{
+                               "coverage": ["root.not_id.bar"],
+                               "allow": ["root.id.foo"]
+                       }]
+               }
+       }
 }
 `
 	node := Node{}
@@ -403,13 +403,13 @@ func (ds *PolicyTestSuite) TestAtomicReplace(c *C) {
 
 	rmNode := NewNode("id", nil)
 	rmNode.Rules = append(rmNode.Rules, &RuleConsumers{
-		Coverage: []*labels.Label{labels.NewLabel("bar", "", "")},
+		RuleBase: RuleBase{Coverage: []*labels.Label{labels.NewLabel("bar", "", "")}},
 		Allow:    []*AllowRule{{Action: api.ACCEPT, Labels: labels.LabelArray{labels.NewLabel("foo", "", "")}}},
 	})
 
 	addNode := NewNode("not_id", nil)
 	addNode.Rules = append(addNode.Rules, &RuleConsumers{
-		Coverage: []*labels.Label{labels.NewLabel("root.not_id.bar", "", "")},
+		RuleBase: RuleBase{Coverage: []*labels.Label{labels.NewLabel("root.not_id.bar", "", "")}},
 		Allow:    []*AllowRule{{Action: api.ACCEPT, Labels: labels.LabelArray{labels.NewLabel("baz", "", "")}}},
 	})
 
@@ -419,28 +419,28 @@ func (ds *PolicyTestSuite) TestAtomicReplace(c *C) {
 
 	wantText := `
 {
-	"name": "root",
-	"rules": [{
-		"coverage": ["reserved:world"],
-		"allow": ["id.foo"]
-	}],
-	"children": {
-		"id": {
-			"rules": [{
-				"coverage": ["foo"],
-				"allow": ["bar"]
-			}]
-		},
-		"not_id": {
-			"rules": [{
-				"coverage": ["root.not_id.bar"],
-				"allow": ["root.id.foo"]
-			},{
-				"coverage": ["root.not_id.bar"],
-				"allow": ["baz"]
-			}]
-		}
-	}
+       "name": "root",
+       "rules": [{
+               "coverage": ["reserved:world"],
+               "allow": ["id.foo"]
+       }],
+       "children": {
+               "id": {
+                       "rules": [{
+                               "coverage": ["foo"],
+                               "allow": ["bar"]
+                       }]
+               },
+               "not_id": {
+                       "rules": [{
+                               "coverage": ["root.not_id.bar"],
+                               "allow": ["root.id.foo"]
+                       },{
+                               "coverage": ["root.not_id.bar"],
+                               "allow": ["baz"]
+                       }]
+               }
+       }
 }`
 	nodeWanted := Node{}
 	err = json.Unmarshal([]byte(wantText), &nodeWanted)
