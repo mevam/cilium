@@ -51,8 +51,8 @@ func (s *PolicyTestSuite) TestGetL4Policy(c *C) {
 	}
 
 	rule1 := RuleL4{
-		RuleBase{[]*labels.Label{lblBar}},
-		[]AllowL4{filterHttp},
+		RuleBase: RuleBase{Coverage: []*labels.Label{lblBar}},
+		Allow:    []AllowL4{filterHttp},
 	}
 
 	res := NewL4Policy()

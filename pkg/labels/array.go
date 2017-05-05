@@ -40,3 +40,33 @@ func (ls LabelArray) Resolve(owner LabelOwner) {
 		l.Resolve(owner)
 	}
 }
+
+// Has returns whether the provided label exists.
+func (ls LabelArray) Has(label string) bool {
+	l := ParseLabel(label)
+	if l == nil {
+		return false
+	}
+	for _, lsl := range ls {
+		// We are ignoring source to since the caller of this
+		// function is probably running within the same source
+		if lsl.Key == l.Key {
+			return true
+		}
+	}
+	return false
+}
+
+// Get returns the value for the provided label.
+func (ls LabelArray) Get(label string) string {
+	l := ParseLabel(label)
+	if l == nil {
+		return ""
+	}
+	for _, lsl := range ls {
+		if lsl.Key == l.Key {
+			return lsl.Value
+		}
+	}
+	return ""
+}

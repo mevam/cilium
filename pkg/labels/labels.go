@@ -164,6 +164,11 @@ func NewLabel(key string, value string, source string) *Label {
 			source = src
 		}
 	}
+
+	var owner LabelOwner
+	if source == k8s.LabelSource {
+		owner = k8s.LabelOwner
+	}
 	if src == common.ReservedLabelSource && key == "" {
 		key = value
 		value = ""
@@ -173,6 +178,7 @@ func NewLabel(key string, value string, source string) *Label {
 		Key:    key,
 		Value:  value,
 		Source: source,
+		owner:  owner,
 	}
 }
 
@@ -454,10 +460,15 @@ func parseSource(str string) (src, next string) {
 func ParseLabel(str string) *Label {
 	lbl := Label{}
 	src, next := parseSource(str)
-	if src != "" {
-		lbl.Source = src
-	} else {
+
+	switch src {
+	case "":
 		lbl.Source = common.CiliumLabelSource
+	case k8s.LabelSource:
+		lbl.owner = k8s.LabelOwner
+		fallthrough
+	default:
+		lbl.Source = src
 	}
 
 	keySplit := strings.SplitN(next, "=", 2)

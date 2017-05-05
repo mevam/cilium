@@ -23,11 +23,15 @@ import (
 
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sLbls "k8s.io/apimachinery/pkg/labels"
 )
 
 type AllowRule struct {
-	Action api.ConsumableDecision `json:"action,omitempty"`
-	Labels labels.LabelArray      `json:"matchLabels"`
+	Action        api.ConsumableDecision `json:"action,omitempty"`
+	Labels        labels.LabelArray      `json:"matchLabels"`
+	MatchSelector *metav1.LabelSelector  `json:"matchSelector,omitempty"`
 }
 
 func (a *AllowRule) IsMergeable() bool {
@@ -101,9 +105,20 @@ func (a *AllowRule) Allows(ctx *SearchContext) api.ConsumableDecision {
 		ctx.Depth--
 	}()
 
-	if ctx.From.Contains(a.Labels) {
-		policyTrace(ctx, "Found all required labels [%v] in rule: [%s]\n", a.Labels, a.String())
-		return a.Action
+	if a.Labels != nil {
+		if ctx.From.Contains(a.Labels) {
+			policyTrace(ctx, "Found all required labels [%v] in rule: [%s]\n", a.Labels, a.String())
+			return a.Action
+		}
+	} else if a.MatchSelector != nil {
+		lbSelector, err := metav1.LabelSelectorAsSelector(a.MatchSelector)
+		if err != nil {
+			log.Errorf("unable the match selector %+v in selector: %s", a.MatchSelector, err)
+			return api.UNDECIDED
+		}
+		if lbSelector.Matches(k8sLbls.Labels(ctx.From)) {
+			return a.Action
+		}
 	}
 
 	policyTrace(ctx, "No matching labels in allow rule: [%s]\n", a.String())
@@ -146,12 +161,37 @@ func (prc *RuleConsumers) Allows(ctx *SearchContext) api.ConsumableDecision {
 	// An ACCEPT can still be overwritten by a DENY inside the same rule.
 	decision := api.UNDECIDED
 
-	if len(prc.Coverage) > 0 && !ctx.TargetCoveredBy(prc.Coverage) {
-		policyTrace(ctx, "Rule has no coverage: [%s]\n", prc.String())
-		return api.UNDECIDED
-	}
+	if prc.Coverage != nil && len(prc.Coverage) > 0 {
+		if !ctx.TargetCoveredBy(prc.Coverage) {
+			policyTrace(ctx, "Rule has no coverage: [%s]\n", prc.String())
+			return api.UNDECIDED
+		}
 
-	policyTrace(ctx, "Found coverage rule: [%s]", prc.String())
+		policyTrace(ctx, "Found coverage rule: [%s]", prc.String())
+
+	} else if prc.CoverageSelector != nil {
+		fromBak := ctx.From
+		toBak := ctx.To
+		ctx.From = removeRootK8sPrefixFromLabelArray(ctx.From)
+		ctx.To = removeRootK8sPrefixFromLabelArray(ctx.To)
+		defer func() {
+			ctx.From = fromBak
+			ctx.To = toBak
+		}()
+
+		lbSelector, err := metav1.LabelSelectorAsSelector(prc.CoverageSelector)
+		if err != nil {
+			log.Errorf("unable the coverage selector %+v in selector: %s", prc.CoverageSelector, err)
+			return api.UNDECIDED
+		}
+		if !lbSelector.Matches(k8sLbls.Labels(ctx.To)) {
+			policyTrace(ctx, "Rule has no coverage: [%s] for %s\n", prc.String(), ctx.To)
+			return api.UNDECIDED
+		}
+
+		policyTrace(ctx, "Found coverage rule: [%s]", prc.String())
+
+	}
 
 	for _, allowRule := range prc.Allow {
 		switch allowRule.Allows(ctx) {

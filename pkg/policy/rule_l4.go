@@ -25,6 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/vulcand/route"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sLbls "k8s.io/apimachinery/pkg/labels"
 )
 
 type AuxRule struct {
@@ -157,8 +159,22 @@ func (l4 *RuleL4) String() string {
 }
 
 func (l4 *RuleL4) GetL4Policy(ctx *SearchContext, result *L4Policy) *L4Policy {
-	if len(l4.Coverage) > 0 && !ctx.TargetCoveredBy(l4.Coverage) {
-		policyTrace(ctx, "L4 Rule %v has no coverage\n", l4)
+	if l4.Coverage != nil && len(l4.Coverage) > 0 {
+		if !ctx.TargetCoveredBy(l4.Coverage) {
+			policyTrace(ctx, "L4 Rule %v has no coverage\n", l4)
+			return nil
+		}
+	} else if l4.CoverageSelector != nil {
+		lbSelector, err := metav1.LabelSelectorAsSelector(l4.CoverageSelector)
+		if err != nil {
+			log.Errorf("unable the coverage selector %+v in selector: %s", l4.CoverageSelector, err)
+			return nil
+		}
+		if !lbSelector.Matches(k8sLbls.Labels(removeRootK8sPrefixFromLabelArray(ctx.To))) {
+			policyTrace(ctx, "L4 Rule %v has no coverage\n", l4)
+			return nil
+		}
+	} else {
 		return nil
 	}
 
